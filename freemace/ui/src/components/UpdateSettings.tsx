@@ -10,6 +10,21 @@ import {
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL ?? '';
+const PYPI_URL = 'https://pypi.org/pypi/freemace/json';
+
+function versionTuple(v: string): number[] {
+  return v.split('.').map(Number);
+}
+
+function isNewer(latest: string, current: string): boolean {
+  const a = versionTuple(latest);
+  const b = versionTuple(current);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] || 0) > (b[i] || 0)) return true;
+    if ((a[i] || 0) < (b[i] || 0)) return false;
+  }
+  return false;
+}
 
 interface UpdateCheck {
   current: string;
@@ -42,12 +57,21 @@ export default function UpdateSettings() {
 
   const fetchUpdateInfo = useCallback(async () => {
     try {
-      const [checkRes, cfgRes] = await Promise.all([
-        fetch(`${API}/api/update/check`),
+      const [pypiRes, cfgRes] = await Promise.all([
+        fetch(PYPI_URL).then(r => r.ok ? r.json() : null).catch(() => null),
         fetch(`${API}/api/update/config`),
       ]);
-      if (checkRes.ok) setUpdateCheck(await checkRes.json());
-      if (cfgRes.ok) setUpdateCfg(await cfgRes.json());
+      if (cfgRes.ok) {
+        const cfg = await cfgRes.json();
+        setUpdateCfg(cfg);
+        const current = cfg.current_version;
+        const latest = pypiRes?.info?.version ?? current;
+        setUpdateCheck({
+          current,
+          latest,
+          update_available: isNewer(latest, current),
+        });
+      }
     } catch { /* silently ignore */ }
   }, []);
 
@@ -98,7 +122,7 @@ export default function UpdateSettings() {
               const result = JSON.parse(data);
               setUpdateDone(result);
               if (result.status === 'updated') {
-                flash('success', `Updated to ${result.to}`);
+                flash('success', 'Update installed successfully');
               } else if (result.status === 'error') {
                 flash('error', result.message);
               } else {
@@ -220,7 +244,7 @@ export default function UpdateSettings() {
 
           {updateDone && updateDone.status === 'updated' && (
             <Box mt={3} p={3} borderRadius="md" bg="green.900" color="white" fontSize="sm">
-              <Text>Updated from {updateDone.from} to {updateDone.to}</Text>
+              <Text>Updated from {updateDone.from}{updateCheck ? ` to ${updateCheck.latest}` : ''}</Text>
               {updateDone.restarted ? (
                 <Text fontSize="xs" mt={1}>Service is restarting. This page will reconnect shortly.</Text>
               ) : (

@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import AsyncIterator
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import freemace
 
@@ -27,7 +27,11 @@ def get_latest_version() -> str | None:
     if _latest_cache["version"] and (now - _latest_cache["ts"]) < _CACHE_TTL:
         return _latest_cache["version"]
     try:
-        with urlopen(PYPI_URL, timeout=10) as resp:
+        req = Request(PYPI_URL, headers={
+            "User-Agent": f"freemace/{freemace.__version__} (https://github.com/Delaunay/freemace)",
+            "Accept": "application/json",
+        })
+        with urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
         ver = data["info"]["version"]
         _latest_cache["version"] = ver
@@ -104,40 +108,27 @@ def _sse(event: str, data: str) -> str:
 
 async def stream_upgrade() -> AsyncIterator[str]:
     """Run the full upgrade pipeline, yielding SSE events with live output."""
-    loop = asyncio.get_event_loop()
     current = freemace.__version__
 
     yield _sse("log", f"Current version: {current}")
-    yield _sse("log", "Checking PyPI for latest version...")
-
-    latest = await loop.run_in_executor(None, get_latest_version)
-    if latest is None:
-        yield _sse("log", "ERROR: Could not reach PyPI")
-        yield _sse("done", json.dumps({"status": "error", "message": "Could not reach PyPI"}))
-        return
-
-    yield _sse("log", f"Latest on PyPI: {latest}")
-
-    if not needs_update(latest):
-        yield _sse("log", "Already up to date.")
-        yield _sse("done", json.dumps({
-            "status": "up-to-date", "current": current, "latest": latest,
-        }))
-        return
-
-    yield _sse("log", f"Upgrading {current} -> {latest} ...")
+    yield _sse("log", "Installing latest version...")
 
     cmd = _upgrade_cmd()
     yield _sse("log", f"$ {' '.join(cmd)}")
 
-    ok, output = await _stream_subprocess(cmd, lambda line: None)
-    for line in output:
-        yield _sse("log", line)
+    lines: list[str] = []
+    ok = False
+    async for event in _stream_subprocess(cmd):
+        if isinstance(event, str):
+            lines.append(event)
+            yield _sse("log", event)
+        else:
+            ok = event
 
     if not ok:
         yield _sse("log", "ERROR: Upgrade failed")
         yield _sse("done", json.dumps({
-            "status": "error", "message": "Upgrade failed", "output": "\n".join(output),
+            "status": "error", "message": "Upgrade failed", "output": "\n".join(lines),
         }))
         return
 
@@ -145,29 +136,35 @@ async def stream_upgrade() -> AsyncIterator[str]:
 
     for restart_cmd in _restart_cmds():
         yield _sse("log", f"$ {' '.join(restart_cmd)}")
-        rok, restart_output = await _stream_subprocess(restart_cmd, lambda line: None, timeout=30)
-        for line in restart_output:
-            yield _sse("log", line)
+        restart_lines: list[str] = []
+        rok = False
+        async for event in _stream_subprocess(restart_cmd, timeout=30):
+            if isinstance(event, str):
+                restart_lines.append(event)
+                yield _sse("log", event)
+            else:
+                rok = event
         if rok:
             yield _sse("log", "Service restarted successfully.")
             yield _sse("done", json.dumps({
-                "status": "updated", "from": current, "to": latest, "restarted": True,
+                "status": "updated", "from": current, "restarted": True,
             }))
             return
 
     yield _sse("log", "WARNING: Could not restart service automatically.")
     yield _sse("done", json.dumps({
-        "status": "updated", "from": current, "to": latest, "restarted": False,
+        "status": "updated", "from": current, "restarted": False,
     }))
 
 
 async def _stream_subprocess(
     cmd: list[str],
-    on_line,
     timeout: int = 120,
-) -> tuple[bool, list[str]]:
-    """Run a subprocess, collecting output lines. Returns (success, lines)."""
-    lines: list[str] = []
+) -> AsyncIterator[str | bool]:
+    """Run a subprocess, yielding each output line as it arrives.
+
+    Yields str for each line, then a final bool indicating success.
+    """
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -180,21 +177,20 @@ async def _stream_subprocess(
                 raw = await asyncio.wait_for(proc.stdout.readline(), timeout=timeout)
             except asyncio.TimeoutError:
                 proc.kill()
-                lines.append(f"Command timed out after {timeout}s")
-                return False, lines
+                yield f"Command timed out after {timeout}s"
+                yield False
+                return
             if not raw:
                 break
-            line = raw.decode("utf-8", errors="replace").rstrip()
-            lines.append(line)
-            on_line(line)
+            yield raw.decode("utf-8", errors="replace").rstrip()
         await proc.wait()
-        return proc.returncode == 0, lines
+        yield proc.returncode == 0
     except FileNotFoundError:
-        lines.append(f"Command not found: {cmd[0]}")
-        return False, lines
+        yield f"Command not found: {cmd[0]}"
+        yield False
     except Exception as exc:
-        lines.append(f"{type(exc).__name__}: {exc}")
-        return False, lines
+        yield f"{type(exc).__name__}: {exc}"
+        yield False
 
 
 # ── Legacy one-shot (used by background loop & CLI) ──────────

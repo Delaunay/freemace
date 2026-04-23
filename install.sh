@@ -122,7 +122,7 @@ ExecStart=$VENV/bin/freemace --data-dir $DATA --config $CONFIG serve --port $POR
 WorkingDirectory=$BASE
 Restart=on-failure
 RestartSec=5
-Environment=PATH=$VENV/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=$VENV/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=HOME=$HOME
 
 [Install]
@@ -133,7 +133,21 @@ sudo systemctl daemon-reload
 sudo systemctl enable freemace.service
 sudo systemctl restart freemace.service
 
-ok "Systemd service installed and started"
+# ── Allow service to restart itself without password ─────
+
+# SUDOERS_FILE="/etc/sudoers.d/freemace"
+# if [ ! -f "$SUDOERS_FILE" ]; then
+#     sudo tee "$SUDOERS_FILE" > /dev/null <<SUDO
+# $RUN_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart freemace.service
+# $RUN_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop freemace.service
+# SUDO
+#     sudo chmod 0440 "$SUDOERS_FILE"
+#     ok "Sudoers rule installed for passwordless service restart"
+# else
+#     ok "Sudoers rule already exists (preserved)"
+# fi
+
+# ok "Systemd service installed and started"
 
 # ── Done ──────────────────────────────────────────────────
 

@@ -134,20 +134,6 @@ def create_app(data_dir: str = "data", config_path: str | None = None) -> FastAP
             "git_enabled": gitsync.is_git_repo(store_root),
         }
 
-    @app.get("/api/update/check")
-    async def check_for_update():
-        """Check PyPI for a newer version without installing."""
-        import freemace as _fm
-        loop = asyncio.get_event_loop()
-        latest = await loop.run_in_executor(None, updater.get_latest_version)
-        if latest is None:
-            return {"status": "error", "message": "Could not reach PyPI"}
-        return {
-            "current": _fm.__version__,
-            "latest": latest,
-            "update_available": updater.needs_update(latest),
-        }
-
     @app.post("/api/update")
     async def trigger_update():
         return StreamingResponse(
