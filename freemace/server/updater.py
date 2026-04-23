@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -37,32 +38,42 @@ def needs_update(latest: str) -> bool:
         return False
 
 
+def _run(cmd: list[str], timeout: int = 120) -> tuple[bool, str]:
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        output = (r.stdout + r.stderr).strip()
+        return r.returncode == 0, output
+    except subprocess.TimeoutExpired:
+        return False, f"Command timed out after {timeout}s: {' '.join(cmd)}"
+    except FileNotFoundError:
+        return False, f"Command not found: {cmd[0]}"
+    except Exception as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+
+
 def do_upgrade() -> tuple[bool, str]:
-    """Pip-install the latest version. Returns (success, output)."""
+    """Install the latest version via uv (preferred) or pip fallback."""
     python = sys.executable
-    r = subprocess.run(
-        [python, "-m", "pip", "install", "--upgrade", "freemace"],
-        capture_output=True, text=True, timeout=120,
-    )
-    output = (r.stdout + r.stderr).strip()
-    return r.returncode == 0, output
+    uv = shutil.which("uv")
+    if uv:
+        cmd = [uv, "pip", "install", "--python", python, "--upgrade", "freemace"]
+    else:
+        cmd = [python, "-m", "pip", "install", "--upgrade", "freemace"]
+    return _run(cmd, timeout=120)
 
 
 def restart_service() -> tuple[bool, str]:
     """Restart the systemd service (tries system-level, falls back to user-level)."""
-    r = subprocess.run(
-        ["sudo", "systemctl", "restart", "freemace.service"],
-        capture_output=True, text=True, timeout=30,
-    )
-    if r.returncode == 0:
-        return True, (r.stdout + r.stderr).strip()
+    ok, out = _run(["sudo", "systemctl", "restart", "freemace.service"], timeout=30)
+    if ok:
+        return True, out
 
-    r = subprocess.run(
-        ["systemctl", "--user", "restart", "freemace.service"],
-        capture_output=True, text=True, timeout=30,
+    ok2, out2 = _run(
+        ["systemctl", "--user", "restart", "freemace.service"], timeout=30,
     )
-    output = (r.stdout + r.stderr).strip()
-    return r.returncode == 0, output
+    if ok2:
+        return True, out2
+    return False, f"system: {out}\nuser: {out2}"
 
 
 async def check_and_update() -> dict:
@@ -83,16 +94,18 @@ async def check_and_update() -> dict:
     log.info("Upgrading %s -> %s", freemace.__version__, latest)
     ok, out = await loop.run_in_executor(None, do_upgrade)
     if not ok:
-        return {"status": "error", "message": f"Upgrade failed: {out}"}
+        return {"status": "error", "message": "Upgrade failed", "output": out}
 
     rok, rout = await loop.run_in_executor(None, restart_service)
-    return {
+    result = {
         "status": "updated",
         "from": freemace.__version__,
         "to": latest,
         "restarted": rok,
-        "restart_output": rout,
     }
+    if not rok:
+        result["output"] = rout
+    return result
 
 
 async def _update_loop(interval_hours: float):

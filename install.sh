@@ -97,7 +97,7 @@ if [ ! -f "$CONFIG" ]; then
   "host": "0.0.0.0",
   "data_dir": "$DATA",
   "git_remote": "",
-  "auto_update": true,
+  "auto_update": false,
   "update_interval_hours": 24
 }
 CONF

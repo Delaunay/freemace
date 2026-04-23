@@ -5,6 +5,7 @@ import {
   defaultConfig
 } from '@chakra-ui/react';
 import { ColorModeProvider } from './components/ui/color-mode';
+import { ToastProvider } from './components/ui/toast';
 import Layout from './layout/Layout';
 import BudgetSheet from './components/BudgetSheet';
 import Settings from './components/Settings';
@@ -16,15 +17,18 @@ function App() {
   return (
     <ChakraProvider value={system}>
       <ColorModeProvider>
-        <Router>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Navigate to="/budget" replace />} />
-              <Route path="/budget" element={<BudgetSheet />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
-          </Layout>
-        </Router>
+        <ToastProvider>
+          <Router>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Navigate to="/budget/entries" replace />} />
+                <Route path="/budget" element={<Navigate to="/budget/entries" replace />} />
+                <Route path="/budget/:tab" element={<BudgetSheet />} />
+                <Route path="/settings" element={<Settings />} />
+              </Routes>
+            </Layout>
+          </Router>
+        </ToastProvider>
       </ColorModeProvider>
     </ChakraProvider>
   );
