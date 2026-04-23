@@ -37,6 +37,62 @@
   gap: 0.5rem;
 }
 
+/* ── Year selector ────────────────────────────────────────── */
+
+.year-selector {
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  transition: border-color 0.2s ease;
+}
+
+.year-selector-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.year-selector-toggle .chevron-open {
+  transform: rotate(180deg);
+}
+
+.year-dropdown {
+  margin-top: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.year-option {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.15s;
+}
+
+.year-option:hover {
+  background-color: #f7fafc;
+}
+
+.year-option.active {
+  background-color: #fff3e0;
+  color: #f56500;
+  font-weight: 600;
+}
+
+.year-new {
+  border-top: 1px solid #e2e8f0;
+}
+
+.year-new-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  outline: none;
+  font-size: 0.875rem;
+  background: transparent;
+}
+
 .sidebar-nav {
   padding: 1rem 0;
 }
@@ -186,6 +242,31 @@
 
 .dark .content-wrapper {
   background-color: #1a202c;
+}
+
+.dark .year-selector {
+  border-bottom-color: #2d3748;
+}
+
+.dark .year-dropdown {
+  border-color: #2d3748;
+}
+
+.dark .year-option:hover {
+  background-color: #2d3748;
+}
+
+.dark .year-option.active {
+  background-color: #2d3020;
+  color: #f6a050;
+}
+
+.dark .year-new {
+  border-top-color: #2d3748;
+}
+
+.dark .year-new-input {
+  color: #e2e8f0;
 }
 
 /* ── Mobile responsiveness ────────────────────────────────── */

@@ -3,6 +3,7 @@ import {
   Box, Button, Flex, Heading, HStack, Input, Text, VStack,
 } from '@chakra-ui/react';
 import { useColorModeValue } from './ui/color-mode';
+import { useToast } from './ui/toast';
 import {
   GitBranch, Key, RefreshCw, Check, AlertCircle,
   ExternalLink, Copy, Loader2, Shield, FolderGit2,
@@ -36,8 +37,8 @@ export default function Settings() {
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [remote, setRemote] = useState('');
   const [loading, setLoading] = useState('');
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [testResult, setTestResult] = useState<{ connected: boolean; output: string } | null>(null);
+  const { toast } = useToast();
 
   const [updateCheck, setUpdateCheck] = useState<UpdateCheck | null>(null);
   const [updateCfg, setUpdateCfg] = useState<UpdateConfig | null>(null);
@@ -56,7 +57,7 @@ export default function Settings() {
       setStatus(data);
       if (data.remote) setRemote(data.remote);
     } catch {
-      setMessage({ type: 'error', text: 'Failed to fetch git status' });
+      toast('error', 'Failed to fetch git status');
     }
   }, []);
 
@@ -73,10 +74,7 @@ export default function Settings() {
 
   useEffect(() => { fetchStatus(); fetchUpdateInfo(); }, [fetchStatus, fetchUpdateInfo]);
 
-  const flash = (type: 'success' | 'error', text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 5000);
-  };
+  const flash = toast;
 
   const generateKey = async () => {
     setLoading('key');
@@ -123,8 +121,11 @@ export default function Settings() {
       const res = await fetch(`${API}/api/git/test`, { method: 'POST' });
       const data = await res.json();
       setTestResult(data);
+      flash(data.connected ? 'success' : 'error',
+        data.connected ? 'SSH connection successful' : `SSH connection failed: ${data.output}`);
     } catch (e: any) {
       setTestResult({ connected: false, output: e.message });
+      flash('error', `Connection test failed: ${e.message}`);
     } finally {
       setLoading('');
     }
@@ -165,19 +166,6 @@ export default function Settings() {
       <Heading size="lg" mb={6}>
         <Flex align="center" gap={2}><FolderGit2 size={24} /> Git Backup Settings</Flex>
       </Heading>
-
-      {message && (
-        <Box
-          mb={4} p={3} borderRadius="md"
-          bg={message.type === 'success' ? 'green.500' : 'red.500'}
-          color="white" fontSize="sm"
-        >
-          <Flex align="center" gap={2}>
-            {message.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
-            {message.text}
-          </Flex>
-        </Box>
-      )}
 
       {/* ── Step 1: SSH Key ─────────────────── */}
       <Box bg={cardBg} p={5} borderRadius="lg" border="1px solid" borderColor={border} mb={4}>
@@ -489,12 +477,15 @@ export default function Settings() {
                 }}
                 onBlur={async () => {
                   try {
-                    await fetch(`${API}/api/update/config`, {
+                    const res = await fetch(`${API}/api/update/config`, {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ update_interval_hours: updateCfg.update_interval_hours }),
                     });
-                  } catch { /* ignore */ }
+                    if (res.ok) flash('success', `Update interval set to ${updateCfg.update_interval_hours}h`);
+                  } catch (e: any) {
+                    flash('error', `Failed to save interval: ${e.message}`);
+                  }
                 }}
               />
               <Text fontSize="sm" color={mutedText}>hours</Text>
