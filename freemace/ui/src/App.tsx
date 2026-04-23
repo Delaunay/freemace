@@ -9,7 +9,8 @@ import { ToastProvider } from './components/ui/toast';
 import Layout from './layout/Layout';
 import { BudgetProvider } from './services/BudgetContext';
 import BudgetSheet from './components/BudgetSheet';
-import Settings from './components/Settings';
+import GitSettings from './components/GitSettings';
+import UpdateSettings from './components/UpdateSettings';
 import './App.css';
 
 const system = createSystem(defaultConfig);
@@ -26,7 +27,9 @@ function App() {
                   <Route path="/" element={<Navigate to="/budget/entries" replace />} />
                   <Route path="/budget" element={<Navigate to="/budget/entries" replace />} />
                   <Route path="/budget/:tab" element={<BudgetSheet />} />
-                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/settings" element={<Navigate to="/settings/git" replace />} />
+                  <Route path="/settings/git" element={<GitSettings />} />
+                  <Route path="/settings/updates" element={<UpdateSettings />} />
                 </Routes>
               </Layout>
             </BudgetProvider>

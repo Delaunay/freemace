@@ -1,0 +1,318 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Box, Button, Flex, Heading, HStack, Input, Text, VStack,
+} from '@chakra-ui/react';
+import { useColorModeValue } from './ui/color-mode';
+import { useToast } from './ui/toast';
+import {
+  RefreshCw, Check, Loader2, Download,
+  Settings as SettingsIcon, Terminal,
+} from 'lucide-react';
+
+const API = import.meta.env.VITE_API_URL ?? '';
+
+interface UpdateCheck {
+  current: string;
+  latest: string;
+  update_available: boolean;
+}
+
+interface UpdateConfig {
+  auto_update: boolean;
+  update_interval_hours: number;
+  current_version: string;
+}
+
+export default function UpdateSettings() {
+  const [updateCheck, setUpdateCheck] = useState<UpdateCheck | null>(null);
+  const [updateCfg, setUpdateCfg] = useState<UpdateConfig | null>(null);
+  const [loading, setLoading] = useState('');
+  const [logs, setLogs] = useState<string[]>([]);
+  const [updating, setUpdating] = useState(false);
+  const [updateDone, setUpdateDone] = useState<any>(null);
+  const { toast } = useToast();
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  const bg = useColorModeValue('white', '#1a1a2e');
+  const cardBg = useColorModeValue('#f8f9fa', '#16213e');
+  const border = useColorModeValue('#e2e8f0', '#2d3748');
+  const mutedText = useColorModeValue('#718096', '#a0aec0');
+
+  const flash = toast;
+
+  const fetchUpdateInfo = useCallback(async () => {
+    try {
+      const [checkRes, cfgRes] = await Promise.all([
+        fetch(`${API}/api/update/check`),
+        fetch(`${API}/api/update/config`),
+      ]);
+      if (checkRes.ok) setUpdateCheck(await checkRes.json());
+      if (cfgRes.ok) setUpdateCfg(await cfgRes.json());
+    } catch { /* silently ignore */ }
+  }, []);
+
+  useEffect(() => { fetchUpdateInfo(); }, [fetchUpdateInfo]);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+  const startUpdate = async () => {
+    setUpdating(true);
+    setUpdateDone(null);
+    setLogs([]);
+
+    try {
+      const res = await fetch(`${API}/api/update`, { method: 'POST' });
+      if (!res.body) {
+        flash('error', 'Streaming not supported');
+        setUpdating(false);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+
+        for (const part of parts) {
+          const lines = part.split('\n');
+          let event = 'message';
+          let data = '';
+          for (const line of lines) {
+            if (line.startsWith('event: ')) event = line.slice(7);
+            else if (line.startsWith('data: ')) data = line.slice(6);
+          }
+
+          if (event === 'log') {
+            setLogs(prev => [...prev, data]);
+          } else if (event === 'done') {
+            try {
+              const result = JSON.parse(data);
+              setUpdateDone(result);
+              if (result.status === 'updated') {
+                flash('success', `Updated to ${result.to}`);
+              } else if (result.status === 'error') {
+                flash('error', result.message);
+              } else {
+                flash('success', 'Already up to date');
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch (e: any) {
+      setLogs(prev => [...prev, `Connection error: ${e.message}`]);
+      flash('error', e.message);
+    } finally {
+      setUpdating(false);
+      await fetchUpdateInfo();
+    }
+  };
+
+  return (
+    <Box p={6} bg={bg} minH="100vh" maxW="800px" mx="auto">
+      <Heading size="lg" mb={6}>
+        <Flex align="center" gap={2}><Download size={24} /> Software Update</Flex>
+      </Heading>
+
+      {/* Version & Updates */}
+      <Box bg={cardBg} p={5} borderRadius="lg" border="1px solid" borderColor={border} mb={4}>
+        <Heading size="md" mb={3}>
+          <Flex align="center" gap={2}>
+            <SettingsIcon size={18} />
+            Version & Updates
+          </Flex>
+        </Heading>
+
+        {updateCheck && (
+          <VStack align="stretch" gap={3}>
+            <HStack gap={4}>
+              <Box>
+                <Text fontSize="xs" color={mutedText}>Installed</Text>
+                <Text fontFamily="mono" fontWeight="bold">{updateCheck.current}</Text>
+              </Box>
+              <Box>
+                <Text fontSize="xs" color={mutedText}>Latest on PyPI</Text>
+                <Text fontFamily="mono" fontWeight="bold">{updateCheck.latest}</Text>
+              </Box>
+              {updateCheck.update_available ? (
+                <Box px={2} py={1} bg="orange.500" color="white" borderRadius="md" fontSize="xs" fontWeight="bold">
+                  Update available
+                </Box>
+              ) : (
+                <Box px={2} py={1} bg="green.500" color="white" borderRadius="md" fontSize="xs" fontWeight="bold">
+                  Up to date
+                </Box>
+              )}
+            </HStack>
+
+            <HStack gap={2} flexWrap="wrap">
+              <Button size="sm" onClick={async () => {
+                setLoading('check');
+                await fetchUpdateInfo();
+                setLoading('');
+              }} variant="outline" disabled={loading === 'check' || updating}>
+                {loading === 'check' ? <Loader2 className="spin" size={14} /> : <RefreshCw size={14} />}
+                <Box ml={1}>Check for Updates</Box>
+              </Button>
+
+              {updateCheck.update_available && (
+                <Button size="sm" colorScheme="orange" onClick={startUpdate}
+                  disabled={updating}>
+                  {updating ? <Loader2 className="spin" size={14} /> : <Download size={14} />}
+                  <Box ml={1}>Install Update ({updateCheck.latest})</Box>
+                </Button>
+              )}
+            </HStack>
+          </VStack>
+        )}
+
+        {!updateCheck && (
+          <Button size="sm" onClick={async () => {
+            setLoading('check');
+            await fetchUpdateInfo();
+            setLoading('');
+          }} disabled={loading === 'check'}>
+            {loading === 'check' ? <Loader2 className="spin" size={14} /> : <RefreshCw size={14} />}
+            <Box ml={1}>Check for Updates</Box>
+          </Button>
+        )}
+      </Box>
+
+      {/* Live Update Log */}
+      {(logs.length > 0 || updating) && (
+        <Box bg={cardBg} p={5} borderRadius="lg" border="1px solid" borderColor={border} mb={4}>
+          <Heading size="md" mb={3}>
+            <Flex align="center" gap={2}>
+              <Terminal size={18} />
+              Update Log
+              {updating && <Loader2 className="spin" size={14} />}
+            </Flex>
+          </Heading>
+          <Box
+            bg="gray.900" color="gray.100" p={3} borderRadius="md"
+            fontFamily="mono" fontSize="xs" lineHeight="1.6"
+            maxH="400px" overflowY="auto" whiteSpace="pre-wrap"
+          >
+            {logs.map((line, i) => (
+              <Box key={i} color={
+                line.startsWith('ERROR') ? 'red.300' :
+                line.startsWith('WARNING') ? 'yellow.300' :
+                line.startsWith('$') ? 'cyan.300' :
+                'gray.100'
+              }>
+                {line}
+              </Box>
+            ))}
+            {updating && logs.length === 0 && (
+              <Text color="gray.500">Connecting...</Text>
+            )}
+            <div ref={logEndRef} />
+          </Box>
+
+          {updateDone && updateDone.status === 'updated' && (
+            <Box mt={3} p={3} borderRadius="md" bg="green.900" color="white" fontSize="sm">
+              <Text>Updated from {updateDone.from} to {updateDone.to}</Text>
+              {updateDone.restarted ? (
+                <Text fontSize="xs" mt={1}>Service is restarting. This page will reconnect shortly.</Text>
+              ) : (
+                <Text fontSize="xs" mt={1}>Restart the service manually to use the new version.</Text>
+              )}
+            </Box>
+          )}
+
+          {updateDone && updateDone.status === 'error' && (
+            <Box mt={3} p={3} borderRadius="md" bg="red.900" color="white" fontSize="sm">
+              <Text fontWeight="bold">{updateDone.message}</Text>
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Auto-Update Settings */}
+      {updateCfg && (
+        <Box bg={cardBg} p={5} borderRadius="lg" border="1px solid" borderColor={border} mb={4}>
+          <Heading size="md" mb={3}>
+            <Flex align="center" gap={2}>
+              <RefreshCw size={18} />
+              Auto-Update
+            </Flex>
+          </Heading>
+          <Text fontSize="sm" color={mutedText} mb={3}>
+            When enabled, FreeMace will periodically check PyPI for new versions,
+            install them, and restart the service automatically.
+          </Text>
+
+          <VStack align="stretch" gap={3}>
+            <HStack gap={3}>
+              <Button
+                size="sm"
+                colorScheme={updateCfg.auto_update ? 'green' : undefined}
+                variant={updateCfg.auto_update ? 'solid' : 'outline'}
+                onClick={async () => {
+                  const newVal = !updateCfg.auto_update;
+                  try {
+                    const res = await fetch(`${API}/api/update/config`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ auto_update: newVal }),
+                    });
+                    if (res.ok) {
+                      const data = await res.json();
+                      setUpdateCfg(prev => prev ? { ...prev, ...data } : prev);
+                      flash('success', newVal ? 'Auto-update enabled' : 'Auto-update disabled');
+                    }
+                  } catch (e: any) {
+                    flash('error', e.message);
+                  }
+                }}
+              >
+                {updateCfg.auto_update ? <Check size={14} /> : null}
+                <Box ml={updateCfg.auto_update ? 1 : 0}>
+                  {updateCfg.auto_update ? 'Enabled' : 'Disabled'}
+                </Box>
+              </Button>
+              <Text fontSize="sm" color={mutedText}>
+                Check every
+              </Text>
+              <Input
+                w="80px" size="sm" type="number" min={1} max={168}
+                value={updateCfg.update_interval_hours}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value) || 24;
+                  setUpdateCfg(prev => prev ? { ...prev, update_interval_hours: v } : prev);
+                }}
+                onBlur={async () => {
+                  try {
+                    const res = await fetch(`${API}/api/update/config`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ update_interval_hours: updateCfg.update_interval_hours }),
+                    });
+                    if (res.ok) flash('success', `Update interval set to ${updateCfg.update_interval_hours}h`);
+                  } catch (e: any) {
+                    flash('error', `Failed to save interval: ${e.message}`);
+                  }
+                }}
+              />
+              <Text fontSize="sm" color={mutedText}>hours</Text>
+            </HStack>
+          </VStack>
+        </Box>
+      )}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+      `}</style>
+    </Box>
+  );
+}

@@ -125,19 +125,26 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           {/* Settings section */}
           <div className={`nav-section expanded`}>
             <Link
-              to="/settings"
-              className={`nav-section-title ${location.pathname === '/settings' ? 'active-section' : ''}`}
+              to="/settings/git"
+              className={`nav-section-title ${location.pathname.startsWith('/settings') ? 'active-section' : ''}`}
               onClick={closeMobileMenu}
             >
               Settings
             </Link>
             <div className="nav-section-items">
               <Link
-                to="/settings"
-                className={`nav-item ${location.pathname === '/settings' ? 'active' : ''}`}
+                to="/settings/git"
+                className={`nav-item ${location.pathname === '/settings/git' ? 'active' : ''}`}
                 onClick={closeMobileMenu}
               >
-                Git Backup & Updates
+                Git Backup
+              </Link>
+              <Link
+                to="/settings/updates"
+                className={`nav-item ${location.pathname === '/settings/updates' ? 'active' : ''}`}
+                onClick={closeMobileMenu}
+              >
+                Software Updates
               </Link>
             </div>
           </div>

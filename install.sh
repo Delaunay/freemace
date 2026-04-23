@@ -80,7 +80,7 @@ fi
 
 if $NEED_VENV; then
     info "Creating virtual environment (Python $PYTHON_VERSION)..."
-    uv venv --python "$PYTHON_VERSION" "$VENV"
+    uv venv --seed --python "$PYTHON_VERSION" "$VENV"
 fi
 
 info "Installing/upgrading freemace..."

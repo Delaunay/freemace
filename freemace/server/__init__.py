@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import StreamingResponse
 
 from freemace.server import gitsync, updater
 
@@ -149,8 +150,14 @@ def create_app(data_dir: str = "data", config_path: str | None = None) -> FastAP
 
     @app.post("/api/update")
     async def trigger_update():
-        result = await updater.check_and_update()
-        return result
+        return StreamingResponse(
+            updater.stream_upgrade(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     @app.get("/api/update/config")
     async def get_update_config():
