@@ -18,6 +18,13 @@ export const sidebarSections: { title: string; href: string; items: NavItem[] }[
       { title: 'Budget Sheet', href: '/budget' },
     ],
   },
+  {
+    title: 'Settings',
+    href: '/settings',
+    items: [
+      { title: 'Git Backup', href: '/settings' },
+    ],
+  },
 ];
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {

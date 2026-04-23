@@ -7,6 +7,7 @@ import {
 import { ColorModeProvider } from './components/ui/color-mode';
 import Layout from './layout/Layout';
 import BudgetSheet from './components/BudgetSheet';
+import Settings from './components/Settings';
 import './App.css';
 
 const system = createSystem(defaultConfig);
@@ -20,6 +21,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/budget" replace />} />
               <Route path="/budget" element={<BudgetSheet />} />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </Layout>
         </Router>
