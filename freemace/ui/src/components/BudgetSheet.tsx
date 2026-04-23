@@ -6,6 +6,7 @@ import { useParams } from 'react-router-dom';
 import { useColorModeValue } from './ui/color-mode';
 import { useToast } from './ui/toast';
 import { jsonStore } from '../services/jsonstore';
+import { useBudget } from '../services/BudgetContext';
 import {
   Plus, Save, Trash2, Download, Upload,
   ChevronUp, ChevronDown, ArrowUpDown, X,
@@ -234,17 +235,11 @@ function parseDateWithFormat(raw: string, fmt: string): string {
   return '';
 }
 
-interface BudgetSheetProps {
-  fileName?: string;
-  onFilesChanged?: () => void;
-}
-
-const BudgetSheet: React.FC<BudgetSheetProps> = ({ fileName: fileNameProp, onFilesChanged }) => {
+const BudgetSheet: React.FC = () => {
   const { tab: routeTab } = useParams<{ tab: string }>();
   const activeTab: Tab = (routeTab as Tab) || 'entries';
   const { toast } = useToast();
-
-  const fileName = fileNameProp || String(new Date().getFullYear());
+  const { fileName, refreshFileList } = useBudget();
 
   const [entries, setEntries]           = useState<BudgetEntry[]>([]);
   const [sort, setSort]                 = useState<SortConfig>({ column: 'date', direction: 'asc' });
@@ -310,9 +305,7 @@ const BudgetSheet: React.FC<BudgetSheetProps> = ({ fileName: fileNameProp, onFil
     }
   }, [toast]);
 
-  const loadFiles = useCallback(async () => {
-    onFilesChanged?.();
-  }, [onFilesChanged]);
+  const loadFiles = refreshFileList;
 
   const loadCategories = useCallback(async () => {
     try {

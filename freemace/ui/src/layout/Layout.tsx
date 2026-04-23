@@ -1,12 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { IconButton, Box, Flex, Text } from '@chakra-ui/react';
 import { ColorModeButton } from '../components/ui/color-mode';
 import { Menu, X, ChevronDown, Bug } from 'lucide-react';
-import { jsonStore } from '../services/jsonstore';
+import { useBudget } from '../services/BudgetContext';
 import './Layout.css';
-
-const COLLECTION = 'budget-sheet';
 
 const BUDGET_TABS = [
   { id: 'entries',  label: 'Entries' },
@@ -21,20 +19,12 @@ const BUDGET_TABS = [
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [fileList, setFileList] = useState<string[]>([]);
-  const [fileName, setFileName] = useState(String(new Date().getFullYear()));
   const [yearOpen, setYearOpen] = useState(false);
+  const { fileName, setFileName, fileList, refreshFileList } = useBudget();
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
-  const loadFiles = useCallback(async () => {
-    try {
-      const all = await jsonStore.list(COLLECTION);
-      setFileList(all.filter(f => !f.startsWith('_')));
-    } catch { setFileList([]); }
-  }, []);
-
-  useEffect(() => { loadFiles(); }, [loadFiles]);
+  useEffect(() => { refreshFileList(); }, [refreshFileList]);
 
   const isBudgetRoute = location.pathname.startsWith('/budget');
   const currentTab = location.pathname.split('/')[2] || 'entries';
@@ -43,6 +33,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     setFileName(f);
     setYearOpen(false);
   };
+
 
   return (
     <div className="layout">
@@ -168,11 +159,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
       <main className="main-content">
         <div className="content-wrapper">
-          {React.Children.map(children, child =>
-            React.isValidElement(child)
-              ? React.cloneElement(child as React.ReactElement<any>, { fileName, onFileChange: setFileName, onFilesChanged: loadFiles })
-              : child
-          )}
+          {children}
         </div>
       </main>
 

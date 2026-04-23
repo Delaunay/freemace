@@ -7,6 +7,7 @@ import {
 import { ColorModeProvider } from './components/ui/color-mode';
 import { ToastProvider } from './components/ui/toast';
 import Layout from './layout/Layout';
+import { BudgetProvider } from './services/BudgetContext';
 import BudgetSheet from './components/BudgetSheet';
 import Settings from './components/Settings';
 import './App.css';
@@ -19,14 +20,16 @@ function App() {
       <ColorModeProvider>
         <ToastProvider>
           <Router>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Navigate to="/budget/entries" replace />} />
-                <Route path="/budget" element={<Navigate to="/budget/entries" replace />} />
-                <Route path="/budget/:tab" element={<BudgetSheet />} />
-                <Route path="/settings" element={<Settings />} />
-              </Routes>
-            </Layout>
+            <BudgetProvider>
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/budget/entries" replace />} />
+                  <Route path="/budget" element={<Navigate to="/budget/entries" replace />} />
+                  <Route path="/budget/:tab" element={<BudgetSheet />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Routes>
+              </Layout>
+            </BudgetProvider>
           </Router>
         </ToastProvider>
       </ColorModeProvider>
