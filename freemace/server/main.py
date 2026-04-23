@@ -1,4 +1,5 @@
 """FreeMace CLI — run the budget server or manage data."""
+from __future__ import annotations
 
 import argparse
 import asyncio
@@ -28,6 +29,11 @@ def cmd_serve(args):
     from freemace.server import create_app
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
+
+    if getattr(args, "serve_data_dir", None):
+        args.data_dir = args.serve_data_dir
+    if getattr(args, "serve_config", None):
+        args.config = args.serve_config
 
     data_dir = _resolve_data_dir(args)
     app = create_app(data_dir=data_dir, config_path=args.config)
@@ -248,6 +254,10 @@ def main():
     p_serve = sub.add_parser("serve", help="Start the budget server")
     p_serve.add_argument("--host", default="0.0.0.0")
     p_serve.add_argument("--port", type=int, default=5002)
+    p_serve.add_argument("--data-dir", dest="serve_data_dir", default=None,
+                         help="Override data directory")
+    p_serve.add_argument("--config", dest="serve_config", default=None,
+                         help="Override config path")
     p_serve.set_defaults(func=cmd_serve)
 
     # list

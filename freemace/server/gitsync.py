@@ -1,4 +1,5 @@
 """Background git auto-save: commit and push data changes."""
+from __future__ import annotations
 
 import asyncio
 import logging

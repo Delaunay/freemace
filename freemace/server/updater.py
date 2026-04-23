@@ -1,4 +1,5 @@
 """Background auto-updater: checks PyPI for new versions and upgrades in-place."""
+from __future__ import annotations
 
 import asyncio
 import json
@@ -48,7 +49,14 @@ def do_upgrade() -> tuple[bool, str]:
 
 
 def restart_service() -> tuple[bool, str]:
-    """Restart the systemd user service."""
+    """Restart the systemd service (tries system-level, falls back to user-level)."""
+    r = subprocess.run(
+        ["sudo", "systemctl", "restart", "freemace.service"],
+        capture_output=True, text=True, timeout=30,
+    )
+    if r.returncode == 0:
+        return True, (r.stdout + r.stderr).strip()
+
     r = subprocess.run(
         ["systemctl", "--user", "restart", "freemace.service"],
         capture_output=True, text=True, timeout=30,

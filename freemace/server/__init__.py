@@ -1,4 +1,5 @@
 """FreeMace server — FastAPI application with JSON file storage."""
+from __future__ import annotations
 
 import asyncio
 import json

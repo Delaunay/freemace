@@ -85,9 +85,9 @@ Useful Commands
 
 .. code-block:: bash
 
-   systemctl --user status freemace     # check service status
-   systemctl --user restart freemace    # restart
-   journalctl --user -u freemace -f    # view logs
+   sudo systemctl status freemace      # check service status
+   sudo systemctl restart freemace     # restart
+   sudo journalctl -u freemace -f      # view logs
 
 
 Features
