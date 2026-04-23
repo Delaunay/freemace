@@ -259,9 +259,13 @@ def create_app(data_dir: str = "data", config_path: str | None = None) -> FastAP
                 return FileResponse(str(path))
             raise HTTPException(status_code=404)
 
+        _API_PREFIXES = ("api/", "store/", "health")
+
         @app.get("/{full_path:path}")
         async def serve_spa(full_path: str):
-            """Catch-all: serve static file if it exists, otherwise index.html for SPA routing."""
+            """Catch-all for SPA routing. Never intercepts API/store paths."""
+            if full_path.startswith(_API_PREFIXES):
+                raise HTTPException(status_code=404)
             requested = static_dir / full_path
             if full_path and requested.is_file():
                 return FileResponse(str(requested))

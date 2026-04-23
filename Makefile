@@ -21,7 +21,7 @@ front:
 
 back:
 	(. ./.venv/bin/activate && uv pip install -e .)
-	.venv/bin/python -m freemace.server.main serve
+	.venv/bin/uvicorn freemace.server:create_app --factory --reload --host 0.0.0.0 --port 5002
 
 # ── Build ─────────────────────────────────────────────────
 
