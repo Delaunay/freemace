@@ -4,6 +4,9 @@ global-exclude __pycache__
 recursive-include freemace *.json
 recursive-include freemace *.py
 
+# Bundled React UI
+recursive-include freemace/server/static *.html *.js *.css *.svg *.png *.ico *.json *.txt *.map
+
 include LICENSE
 include requirements.txt
 
@@ -18,3 +21,4 @@ prune docs
 prune tests
 prune examples
 prune freemace/plugins
+prune freemace/ui

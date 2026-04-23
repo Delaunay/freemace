@@ -14,13 +14,29 @@ serve-doc:
 
 update-doc: build-doc serve-doc
 
-CONDA_ACTIVATE=. $$(conda info --base)/etc/profile.d/conda.sh ; conda activate
+# ── Development ───────────────────────────────────────────
 
 front:
 	cd freemace/ui && npm run dev
 
 back:
-	($(CONDA_ACTIVATE) py310; python -m freemace.server.main)
+	(. ./.venv/bin/activate && uv pip install -e .)
+	.venv/bin/python -m freemace.server.main serve
+
+# ── Build ─────────────────────────────────────────────────
+
+build-ui:
+	cd freemace/ui && npm ci && VITE_API_URL= npx vite build --outDir ../server/static
+
+build-wheel: build-ui
+	python -m build
+
+build: build-wheel
+
+clean:
+	rm -rf freemace/server/static dist build *.egg-info
+
+# ── Alembic ───────────────────────────────────────────────
 
 alembic_gen:
 	cd freemace/alembic && alembic revision -m "create account table"
@@ -30,4 +46,3 @@ alembic-autogen:
 
 alembic-update:
 	cd freemace/alembic && alembic upgrade head
-

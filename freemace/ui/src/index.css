@@ -5,6 +5,9 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #f7fafc;
+  color: #1a202c;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 code {
@@ -12,50 +15,12 @@ code {
     monospace;
 }
 
-/* ContentEditable styling */
-[contenteditable="true"] {
-  outline: none;
-  transition: all 0.2s ease;
-}
-
-[contenteditable="true"]:hover {
-  background-color: #f7fafc !important;
-  border-color: #cbd5e0 !important;
-}
-
-[contenteditable="true"]:focus {
-  background-color: #ffffff !important;
-  border-color: #4299e1 !important;
-  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1) !important;
-}
-
-[contenteditable="true"]:empty:before {
-  content: attr(data-placeholder);
-  color: #a0aec0;
-  font-style: italic;
-}
-
-/* Recipe title styling */
-.recipe-title {
-  font-size: 2rem;
-  font-weight: 700;
-  line-height: 1.2;
-  color: #2d3748;
-}
-
-[contenteditable="true"].recipe-title:focus {
-  background-color: #ffffff !important;
-  padding: 8px !important;
-  border-radius: 6px !important;
-  border: 2px solid #4299e1 !important;
-}
-
 /* Smooth transitions for all interactive elements */
-button, input, [contenteditable] {
+button, input, select, [contenteditable] {
   transition: all 0.2s ease-in-out;
 }
 
-/* Custom scrollbar for better UX */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -72,4 +37,24 @@ button, input, [contenteditable] {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+/* ── Dark mode ────────────────────────────────────────────── */
+
+.dark body,
+.dark {
+  background-color: #171923;
+  color: #e2e8f0;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #2d3748;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #4a5568;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #718096;
 }
