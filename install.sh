@@ -4,7 +4,7 @@
 #
 # Installs to /opt/freemace/ with:
 #   .venv/   — Python virtual environment
-#   .data/   — JSON data store (git-tracked if configured)
+#   data/    — JSON data store (git-tracked if configured)
 #   config.json — runtime configuration
 #
 # Safe to re-run: upgrades the package, preserves config and data.
@@ -12,7 +12,7 @@ set -euo pipefail
 
 BASE="/opt/freemace"
 VENV="$BASE/.venv"
-DATA="$BASE/.data"
+DATA="$BASE/data"
 CONFIG="$BASE/config.json"
 SERVICE_FILE="/etc/systemd/system/freemace.service"
 PORT="${FREEMACE_PORT:-5002}"
@@ -96,10 +96,7 @@ if [ ! -f "$CONFIG" ]; then
 {
   "port": $PORT,
   "host": "0.0.0.0",
-  "data_dir": "$DATA",
-  "git_remote": "",
-  "auto_update": false,
-  "update_interval_hours": 24
+  "data_dir": "$DATA"
 }
 CONF
     ok "Created default config at $CONFIG"

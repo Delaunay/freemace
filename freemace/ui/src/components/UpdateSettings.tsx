@@ -4,6 +4,7 @@ import {
 } from '@chakra-ui/react';
 import { useColorModeValue } from './ui/color-mode';
 import { useToast } from './ui/toast';
+import { jsonStore } from '../services/jsonstore';
 import {
   RefreshCw, Check, Loader2, Download,
   Settings as SettingsIcon, Terminal,
@@ -11,6 +12,8 @@ import {
 
 const API = import.meta.env.VITE_API_URL ?? '';
 const PYPI_URL = 'https://pypi.org/pypi/freemace/json';
+const SETTINGS_COLLECTION = '_config';
+const SETTINGS_KEY = '_settings';
 
 function versionTuple(v: string): number[] {
   return v.split('.').map(Number);
@@ -32,15 +35,14 @@ interface UpdateCheck {
   update_available: boolean;
 }
 
-interface UpdateConfig {
-  auto_update: boolean;
-  update_interval_hours: number;
-  current_version: string;
+interface SettingsData {
+  auto_update?: boolean;
+  update_interval_hours?: number;
 }
 
 export default function UpdateSettings() {
   const [updateCheck, setUpdateCheck] = useState<UpdateCheck | null>(null);
-  const [updateCfg, setUpdateCfg] = useState<UpdateConfig | null>(null);
+  const [settings, setSettings] = useState<SettingsData>({ auto_update: false, update_interval_hours: 24 });
   const [loading, setLoading] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
   const [updating, setUpdating] = useState(false);
@@ -57,21 +59,19 @@ export default function UpdateSettings() {
 
   const fetchUpdateInfo = useCallback(async () => {
     try {
-      const [pypiRes, cfgRes] = await Promise.all([
+      const [pypiRes, versionRes, stored] = await Promise.all([
         fetch(PYPI_URL).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(`${API}/api/update/config`),
+        fetch(`${API}/api/version`).then(r => r.ok ? r.json() : null).catch(() => null),
+        jsonStore.get<SettingsData>(SETTINGS_COLLECTION, SETTINGS_KEY).catch(() => null),
       ]);
-      if (cfgRes.ok) {
-        const cfg = await cfgRes.json();
-        setUpdateCfg(cfg);
-        const current = cfg.current_version;
-        const latest = pypiRes?.info?.version ?? current;
-        setUpdateCheck({
-          current,
-          latest,
-          update_available: isNewer(latest, current),
-        });
-      }
+      if (stored) setSettings(s => ({ ...s, ...stored }));
+      const current = versionRes?.version ?? '0.0.0';
+      const latest = pypiRes?.info?.version ?? current;
+      setUpdateCheck({
+        current,
+        latest,
+        update_available: isNewer(latest, current),
+      });
     } catch { /* silently ignore */ }
   }, []);
 
@@ -80,6 +80,15 @@ export default function UpdateSettings() {
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
+
+  const saveSettings = async (updated: SettingsData) => {
+    setSettings(updated);
+    try {
+      await jsonStore.put(SETTINGS_COLLECTION, SETTINGS_KEY, updated);
+    } catch (e: any) {
+      flash('error', `Failed to save settings: ${e.message}`);
+    }
+  };
 
   const startUpdate = async () => {
     setUpdating(true);
@@ -262,76 +271,54 @@ export default function UpdateSettings() {
       )}
 
       {/* Auto-Update Settings */}
-      {updateCfg && (
-        <Box bg={cardBg} p={5} borderRadius="lg" border="1px solid" borderColor={border} mb={4}>
-          <Heading size="md" mb={3}>
-            <Flex align="center" gap={2}>
-              <RefreshCw size={18} />
-              Auto-Update
-            </Flex>
-          </Heading>
-          <Text fontSize="sm" color={mutedText} mb={3}>
-            When enabled, FreeMace will periodically check PyPI for new versions,
-            install them, and restart the service automatically.
-          </Text>
+      <Box bg={cardBg} p={5} borderRadius="lg" border="1px solid" borderColor={border} mb={4}>
+        <Heading size="md" mb={3}>
+          <Flex align="center" gap={2}>
+            <RefreshCw size={18} />
+            Auto-Update
+          </Flex>
+        </Heading>
+        <Text fontSize="sm" color={mutedText} mb={3}>
+          When enabled, FreeMace will periodically check PyPI for new versions,
+          install them, and restart the service automatically.
+        </Text>
 
-          <VStack align="stretch" gap={3}>
-            <HStack gap={3}>
-              <Button
-                size="sm"
-                colorScheme={updateCfg.auto_update ? 'green' : undefined}
-                variant={updateCfg.auto_update ? 'solid' : 'outline'}
-                onClick={async () => {
-                  const newVal = !updateCfg.auto_update;
-                  try {
-                    const res = await fetch(`${API}/api/update/config`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ auto_update: newVal }),
-                    });
-                    if (res.ok) {
-                      const data = await res.json();
-                      setUpdateCfg(prev => prev ? { ...prev, ...data } : prev);
-                      flash('success', newVal ? 'Auto-update enabled' : 'Auto-update disabled');
-                    }
-                  } catch (e: any) {
-                    flash('error', e.message);
-                  }
-                }}
-              >
-                {updateCfg.auto_update ? <Check size={14} /> : null}
-                <Box ml={updateCfg.auto_update ? 1 : 0}>
-                  {updateCfg.auto_update ? 'Enabled' : 'Disabled'}
-                </Box>
-              </Button>
-              <Text fontSize="sm" color={mutedText}>
-                Check every
-              </Text>
-              <Input
-                w="80px" size="sm" type="number" min={1} max={168}
-                value={updateCfg.update_interval_hours}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value) || 24;
-                  setUpdateCfg(prev => prev ? { ...prev, update_interval_hours: v } : prev);
-                }}
-                onBlur={async () => {
-                  try {
-                    const res = await fetch(`${API}/api/update/config`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ update_interval_hours: updateCfg.update_interval_hours }),
-                    });
-                    if (res.ok) flash('success', `Update interval set to ${updateCfg.update_interval_hours}h`);
-                  } catch (e: any) {
-                    flash('error', `Failed to save interval: ${e.message}`);
-                  }
-                }}
-              />
-              <Text fontSize="sm" color={mutedText}>hours</Text>
-            </HStack>
-          </VStack>
-        </Box>
-      )}
+        <VStack align="stretch" gap={3}>
+          <HStack gap={3}>
+            <Button
+              size="sm"
+              colorScheme={settings.auto_update ? 'green' : undefined}
+              variant={settings.auto_update ? 'solid' : 'outline'}
+              onClick={async () => {
+                const updated = { ...settings, auto_update: !settings.auto_update };
+                await saveSettings(updated);
+                flash('success', updated.auto_update ? 'Auto-update enabled' : 'Auto-update disabled');
+              }}
+            >
+              {settings.auto_update ? <Check size={14} /> : null}
+              <Box ml={settings.auto_update ? 1 : 0}>
+                {settings.auto_update ? 'Enabled' : 'Disabled'}
+              </Box>
+            </Button>
+            <Text fontSize="sm" color={mutedText}>
+              Check every
+            </Text>
+            <Input
+              w="80px" size="sm" type="number" min={1} max={168}
+              value={settings.update_interval_hours}
+              onChange={(e) => {
+                const v = parseInt(e.target.value) || 24;
+                setSettings(prev => ({ ...prev, update_interval_hours: v }));
+              }}
+              onBlur={async () => {
+                await saveSettings(settings);
+                flash('success', `Update interval set to ${settings.update_interval_hours}h`);
+              }}
+            />
+            <Text fontSize="sm" color={mutedText}>hours</Text>
+          </HStack>
+        </VStack>
+      </Box>
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }

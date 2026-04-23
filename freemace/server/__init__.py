@@ -26,9 +26,6 @@ DEFAULT_CONFIG = {
     "port": 5002,
     "host": "0.0.0.0",
     "data_dir": "data",
-    "git_remote": "",
-    "auto_update": False,
-    "update_interval_hours": 24,
 }
 
 
@@ -77,8 +74,12 @@ def create_app(data_dir: str = "data", config_path: str | None = None) -> FastAP
     async def _startup():
         gitsync.start_sync(store_root)
 
-        if cfg.get("auto_update"):
-            updater.start_update_loop(cfg.get("update_interval_hours", 24))
+        settings_path = store_root / "_config" / "_settings.json"
+        if settings_path.is_file():
+            with open(settings_path) as f:
+                settings = json.load(f)
+            if settings.get("auto_update"):
+                updater.start_update_loop(settings.get("update_interval_hours", 24))
 
     # ── JSON Store routes ─────────────────────────────────────
 
@@ -145,28 +146,10 @@ def create_app(data_dir: str = "data", config_path: str | None = None) -> FastAP
             },
         )
 
-    @app.get("/api/update/config")
-    async def get_update_config():
+    @app.get("/api/version")
+    def get_version():
         import freemace as _fm
-        return {
-            "auto_update": cfg.get("auto_update", False),
-            "update_interval_hours": cfg.get("update_interval_hours", 24),
-            "current_version": _fm.__version__,
-        }
-
-    @app.put("/api/update/config")
-    async def set_update_config(request: Request):
-        body = await request.json()
-        if "auto_update" in body:
-            cfg["auto_update"] = bool(body["auto_update"])
-        if "update_interval_hours" in body:
-            cfg["update_interval_hours"] = max(1, int(body["update_interval_hours"]))
-        if config_path:
-            save_config(config_path, cfg)
-        return {
-            "auto_update": cfg.get("auto_update", False),
-            "update_interval_hours": cfg.get("update_interval_hours", 24),
-        }
+        return {"version": _fm.__version__}
 
     # ── Git configuration API ─────────────────────────────────
 
@@ -196,10 +179,6 @@ def create_app(data_dir: str = "data", config_path: str | None = None) -> FastAP
 
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, gitsync.git_init, store_root, remote)
-
-        if config_path:
-            cfg["git_remote"] = remote
-            save_config(config_path, cfg)
 
         sha = await loop.run_in_executor(None, gitsync.git_sync, store_root)
         gitsync.ensure_sync_running(store_root)
