@@ -29,6 +29,7 @@ fail()  { printf '\033[1;31m✗  %s\033[0m\n' "$*"; exit 1; }
 
 info "Installing FreeMace to $BASE"
 
+
 if [ ! -d "$BASE" ]; then
     sudo mkdir -p "$BASE"
     sudo chown "$RUN_USER:$RUN_GROUP" "$BASE"
