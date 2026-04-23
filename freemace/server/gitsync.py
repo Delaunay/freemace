@@ -182,7 +182,7 @@ def git_sync(data_dir: Path) -> str | None:
 
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     msg = f"auto-save {ts}"
-    _run(["git", "commit", "-m", msg], data_dir)
+    _run(["git", "commit", "--author", "FreeMace Bot <freemace@noreply>", "-m", msg], data_dir)
 
     rc, out = _run(["git", "remote", "get-url", "origin"], data_dir)
     if rc == 0 and out:
